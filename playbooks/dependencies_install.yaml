@@ -1,0 +1,59 @@
+- hosts: all
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+  - name: Setup docker installation
+    block:
+
+    - name: Add Docker GPG key
+      get_url:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        dest: /etc/apt/keyrings/docker.asc
+        mode: '0644'
+
+    - name: Get distribution name
+      shell: '. /etc/os-release && echo "$VERSION_CODENAME"'
+      register: dist
+
+    - name: Get arch
+      shell: dpkg --print-architecture
+      register: arch
+
+    - name: Add Docker Repository
+      apt_repository:
+        repo: 'deb [arch={{ arch.stdout }} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu {{ dist.stdout }} stable'
+        state: present
+      register: repo
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      when: repo.changed
+
+    - name: "Add user {{ ansible_ssh_user }} to group docker"
+      user:
+        name: "{{ ansible_ssh_user }}"
+        groups: docker
+        append: yes
+
+
+  - name: Install packages
+    block:
+
+    - name: Install deb packages
+      apt:
+        deb: https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
+
+    - name: Install apt packages
+      package:
+        state: present
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - docker-buildx-plugin
+          - docker-compose-plugin
+          - wireguard
+          - bind9
+      register: install

@@ -1,0 +1,5 @@
+- import_playbook: firewall_setup.yaml
+- import_playbook: dependencies_install.yaml
+- import_playbook: minikube_setup.yaml
+- import_playbook: bind9_setup.yaml
+- import_playbook: wireguard_setup.yaml

@@ -1,0 +1,29 @@
+- hosts: all
+  become: yes
+  gather_facts: no
+  tasks:
+
+    - name: Allow SSH
+      ufw:
+        rule: allow
+        name: OpenSSH
+
+    - name: Enable firewall
+      ufw:
+        state: enabled
+
+    - name: Add firewall rule for wireguard
+      ufw:
+        rule: allow
+        port: '51820'
+        proto: udp
+        comment: wireguard
+
+    - name: Add firewall rule for DNS over wireguard
+      ufw:
+        rule: allow
+        port: '53'
+        proto: udp
+        from: 192.168.50.0/24
+        to: 192.168.50.1
+        comment: DNS from wireguard

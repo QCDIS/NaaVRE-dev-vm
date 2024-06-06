@@ -1,0 +1,52 @@
+- hosts: all
+  become: no
+  gather_facts: no
+  vars:
+    minikube_service_path: /usr/lib/systemd/system/minikube.service
+    kubeconfig_file_path: "/home/{{ ansible_ssh_user }}/naavre-dev-vm-kubeconfig"
+
+  tasks:
+
+  - name: Setup minikube systemctl service
+    block:
+
+      - name: "Create {{ minikube_service_path }}"
+        blockinfile:
+          path: "{{ minikube_service_path }}"
+          block: |
+            [Unit]
+            Description=minikube
+            After=network-online.target ufw.service containerd.service docker.service
+            Wants=network-online.target docker.service
+            Requires=docker.socket containerd.service docker.service
+
+            [Service]
+            Type=oneshot
+            RemainAfterExit=yes
+            WorkingDirectory=/root
+            ExecStartPre=-/usr/bin/docker network create -d bridge --subnet=192.168.51.0/24 --gateway=192.168.51.1 --opt com.docker.network.bridge.name=minikube0 minikube0
+            ExecStart=/usr/bin/minikube start --addons=ingress,ingress-dns --cpus=4 --disk-size=30gb --network minikube0 --static-ip 192.168.51.2 -p naavre-dev-vm
+            ExecStop=/usr/bin/minikube stop
+            User={{ ansible_ssh_user }}
+            Group={{ ansible_ssh_user }}
+            WorkingDirectory=/home/{{ ansible_ssh_user }}
+
+            [Install]
+            WantedBy=multi-user.target
+          create: true
+        become: yes
+
+      - name: Enable and start minikube service
+        service:
+          name: minikube
+          enabled: true
+          state: started
+        become: yes
+
+
+  - name: Generate kubeconfig file
+    block:
+
+      - name: "Generate kubeconfig file"
+        shell: |
+          minikube kubectl -- config view --flatten > {{ kubeconfig_file_path }}

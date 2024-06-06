@@ -1,0 +1,34 @@
+- hosts: all
+  become: yes
+  gather_facts: no
+  vars:
+    bind_conf_zones: /etc/bind/named.conf.default-zones
+
+  tasks:
+
+  - name: "Add *.test zone to bind9"
+    blockinfile:
+      path: "/etc/bind/named.conf.default-zones"
+      block: |
+        zone "test" IN {
+          type forward;
+          forward only;
+          forwarders { 192.168.51.2; };
+        };
+      marker: "// {mark} ANSIBLE MANAGED BLOCK"
+    register: add_zone_file
+
+  - name: "Disable dnssec validation in bind9"
+    # This is needed for the test zone forwarding to work
+    lineinfile:
+      path: /etc/bind/named.conf.options
+      line: '\tdnssec-validation no;'
+      regexp: '^\tdnssec-validation (auto|yes|no);$'
+      backrefs: true
+    register: disable_dnssec
+
+  - name: Restart bind9 service
+    service:
+      name: bind9
+      state: restarted
+    when: add_zone_file.changed or disable_dnssec.changed

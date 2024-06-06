@@ -1,0 +1,138 @@
+- hosts: all
+  become: yes
+  gather_facts: no
+  vars:
+    server_priv_key_path: /etc/wireguard/server.priv
+    server_pub_key_path: /etc/wireguard/server.pub
+    client_priv_key_path: /etc/wireguard/client.priv
+    client_pub_key_path: /etc/wireguard/client.pub
+    server_config_path: /etc/wireguard/wg0.conf
+    client_config_path: "/home/{{ ansible_ssh_user }}/naavre-dev-vm.conf"
+
+  tasks:
+
+  - name: Generate Wireguard server keys
+    block:
+
+    - name: "Check for {{ server_priv_key_path }}"
+      stat:
+        path: "{{ server_priv_key_path }}"
+      register: priv_check
+
+    - name: "Generate {{ server_priv_key_path }}"
+      shell: |
+        umask 077
+        wg genkey > {{ server_priv_key_path }}
+      when: not priv_check.stat.exists
+
+    - name: "Check for {{ server_pub_key_path }}"
+      stat:
+        path: "{{ server_pub_key_path }}"
+      register: pub_check
+
+    - name: "Generate {{ server_pub_key_path }}"
+      shell: |
+        umask 077
+        wg pubkey < {{ server_priv_key_path }} > {{ server_pub_key_path }}
+      when: not pub_check.stat.exists
+
+
+  - name: Generate Wireguard client keys
+    block:
+
+      - name: "Check for {{ client_priv_key_path }}"
+        stat:
+          path: "{{ client_priv_key_path }}"
+        register: priv_check
+
+      - name: "Generate {{ client_priv_key_path }}"
+        shell: |
+          umask 077
+          wg genkey > {{ client_priv_key_path }}
+        when: not priv_check.stat.exists
+
+      - name: "Check for {{ client_pub_key_path }}"
+        stat:
+          path: "{{ client_pub_key_path }}"
+        register: pub_check
+
+      - name: "Generate {{ client_pub_key_path }}"
+        shell: |
+          umask 077
+          wg pubkey < {{ client_priv_key_path }} > {{ client_pub_key_path }}
+        when: not pub_check.stat.exists
+
+
+  - name: Generate Wireguard server conf
+    block:
+
+    - name: "Read {{ server_priv_key_path }}"
+      slurp:
+        path: "{{ server_priv_key_path }}"
+      register: interface_priv_key
+
+    - name: "Read {{ client_pub_key_path }}"
+      slurp:
+        path: "{{ client_pub_key_path }}"
+      register: peer_pub_key
+
+    - name: "Generate {{ server_config_path }}"
+      blockinfile:
+        path: "{{ server_config_path }}"
+        mode: '600'
+        block: |
+          [Interface]
+          PrivateKey = {{ interface_priv_key.content | b64decode }}
+          Address = 192.168.50.1/24
+          ListenPort = 51820
+
+          PostUp = ufw route allow in on wg0 out on minikube0
+          PostUp = iptables -I FORWARD -i wg0 -o minikube0 -j ACCEPT
+          PreDown = ufw route delete allow in on wg0 out on minikube0
+          PreDown = iptables -D FORWARD -i wg0 -o minikube0 -j ACCEPT
+
+          [Peer]
+          PublicKey = {{ peer_pub_key.content | b64decode }}
+          AllowedIPs = 192.168.50.16/32
+        create: true
+
+
+  - name: Generate Wireguard client conf
+    block:
+
+      - name: "Read {{ client_priv_key_path }}"
+        slurp:
+          path: "{{ client_priv_key_path }}"
+        register: interface_priv_key
+
+      - name: "Read {{ server_pub_key_path }}"
+        slurp:
+          path: "{{ server_pub_key_path }}"
+        register: peer_pub_key
+
+      - name: "Generate Wireguard configuration file"
+        blockinfile:
+          path: "{{ client_config_path }}"
+          mode: '600'
+          owner: "{{ ansible_ssh_user }}"
+          group: "{{ ansible_ssh_user }}"
+          block: |
+            [Interface]
+            PrivateKey = {{ interface_priv_key.content | b64decode }}
+            Address = 192.168.50.16/24
+            DNS = 192.168.50.1
+
+            [Peer]
+            PublicKey = {{ peer_pub_key.content | b64decode }}
+            Endpoint = {{ ansible_ssh_host }}:51820
+            AllowedIPs = 192.168.50.0/24, 192.168.51.0/24
+          create: true
+
+  - name: Enable wireguard interface
+    block:
+
+      - name: "Enable and start wg-quick@wg0.service"
+        service:
+          name: wg-quick@wg0.service
+          enabled: true
+          state: started
