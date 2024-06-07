@@ -32,13 +32,6 @@
         update_cache: yes
       when: repo.changed
 
-    - name: "Add user {{ ansible_ssh_user }} to group docker"
-      user:
-        name: "{{ ansible_ssh_user }}"
-        groups: docker
-        append: yes
-
-
   - name: Install packages
     block:
 
@@ -57,3 +50,12 @@
           - wireguard
           - bind9
       register: install
+
+  - name: Configure docker
+    block:
+
+    - name: "Add user {{ ansible_ssh_user }} to group docker"
+      user:
+        name: "{{ ansible_ssh_user }}"
+        groups: docker
+        append: yes
