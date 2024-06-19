@@ -106,4 +106,10 @@ To deploy resources to the minikube cluster with Tilt, add the following line at
 allow_k8s_contexts('naavre-dev-vm')
 ```
 
+In order to build docker images on the VM, run the following command in your terminal (read [Container registry internals](#container-registry-internals) above for more details):
+
+```shell
+docker buildx create --driver kubernetes --use --config buildkit.toml
+```
+
 You can then use the usual tilt commands. Resources will be deployed to the minikube cluster running on the VM.
