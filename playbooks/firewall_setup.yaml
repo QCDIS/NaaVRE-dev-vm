@@ -27,3 +27,12 @@
         from: 192.168.50.0/24
         to: 192.168.50.1
         comment: DNS from wireguard
+
+    - name: Add firewall rule for docker registry
+      ufw:
+        rule: allow
+        port: '5005'
+        proto: tcp
+        from: 192.168.51.0/24
+        to: 192.168.50.1
+        comment: Docker registry from minikube
