@@ -3,12 +3,55 @@
   gather_facts: no
   vars:
     minikube_service_path: /usr/lib/systemd/system/minikube.service
+    ctlptl_cluster_yaml_path: "/home/{{ ansible_ssh_user }}/k8s/ctlptl-cluster.yaml"
+    registry_cm_yaml_path: "/home/{{ ansible_ssh_user }}/k8s/registry-cm.yaml"
     kubeconfig_file_path: "/home/{{ ansible_ssh_user }}/naavre-dev-vm-kubeconfig"
 
   tasks:
 
   - name: Setup minikube systemctl service
     block:
+
+      - name: "Create {{ ctlptl_cluster_yaml_path }}"
+        # Creates a container registry and minikube cluster. The cluster uses the container registry by default.
+        blockinfile:
+          path: "{{ ctlptl_cluster_yaml_path }}"
+          block: |
+            apiVersion: ctlptl.dev/v1alpha1
+            kind: Registry
+            name: ctlptl-registry
+            port: 5005
+            listenAddress: 0.0.0.0
+            ---
+            apiVersion: ctlptl.dev/v1alpha1
+            kind: Cluster
+            product: minikube
+            name: naavre-dev-vm
+            registry: ctlptl-registry
+            minikube:
+              startFlags:
+                - "--addons=ingress,ingress-dns"
+                - "--cpus=4"
+                - "--disk-size=30gb"
+                - "--network=minikube0"
+                - "--static-ip=192.168.51.2"
+                - "--insecure-registry=192.168.50.1:5005"
+          create: true
+
+      - name: "Create {{ registry_cm_yaml_path }}"
+        # Registry discovery for tilt (https://docs.tilt.dev/choosing_clusters.html#discovering-the-registry)
+        blockinfile:
+          path: "{{ registry_cm_yaml_path }}"
+          block: |
+            apiVersion: v1
+            kind: ConfigMap
+            metadata:
+              name: local-registry-hosting
+              namespace: kube-public
+            data:
+              localRegistryHosting.v1: |
+                host: "192.168.50.1:5005"
+          create: true
 
       - name: "Create {{ minikube_service_path }}"
         blockinfile:
@@ -23,10 +66,10 @@
             [Service]
             Type=oneshot
             RemainAfterExit=yes
-            WorkingDirectory=/root
             ExecStartPre=-/usr/bin/docker network create -d bridge --subnet=192.168.51.0/24 --gateway=192.168.51.1 --opt com.docker.network.bridge.name=minikube0 minikube0
-            ExecStart=/usr/bin/minikube start --addons=ingress,ingress-dns --cpus=4 --disk-size=30gb --network minikube0 --static-ip 192.168.51.2 -p naavre-dev-vm
-            ExecStop=/usr/bin/minikube stop
+            ExecStart=/usr/bin/ctlptl apply -f {{ ctlptl_cluster_yaml_path }}
+            ExecStartPost=-/usr/bin/kubectl -n kube-public apply -f {{ registry_cm_yaml_path }}
+            ExecStop=/usr/bin/ctlptl delete -f {{ ctlptl_cluster_yaml_path }}
             User={{ ansible_ssh_user }}
             Group={{ ansible_ssh_user }}
             WorkingDirectory=/home/{{ ansible_ssh_user }}
@@ -35,6 +78,13 @@
             WantedBy=multi-user.target
           create: true
         become: yes
+        register: minikube_service_file
+
+      - name: Reload daemon
+        shell: |
+          systemctl daemon-reload
+        become: yes
+        when: minikube_service_file.changed
 
       - name: Enable and start minikube service
         service:

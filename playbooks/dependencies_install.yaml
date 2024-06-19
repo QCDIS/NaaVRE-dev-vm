@@ -4,7 +4,16 @@
 
   tasks:
 
-  - name: Setup docker installation
+  - name: Install packages
+    package:
+      state: present
+      name:
+        - wireguard
+        - bind9
+    register: install
+
+
+  - name: Install Docker
     block:
 
     - name: Add Docker GPG key
@@ -32,14 +41,7 @@
         update_cache: yes
       when: repo.changed
 
-  - name: Install packages
-    block:
-
-    - name: Install deb packages
-      apt:
-        deb: https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
-
-    - name: Install apt packages
+    - name: Install Docker
       package:
         state: present
         name:
@@ -47,15 +49,67 @@
           - docker-ce-cli
           - docker-buildx-plugin
           - docker-compose-plugin
-          - wireguard
-          - bind9
-      register: install
-
-  - name: Configure docker
-    block:
 
     - name: "Add user {{ ansible_ssh_user }} to group docker"
       user:
         name: "{{ ansible_ssh_user }}"
         groups: docker
         append: yes
+
+
+  - name: Install kubectl
+    # Kubectl is required ctlptl. The minikube version cannot be used easily in this case, because we are using a
+    # non-default profile name (naavre-dev-vm). Instead, we install minikube separately.
+    block:
+
+    - name: Install Kubernetes prerequisite
+      package:
+        state: present
+        name:
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - gnupg
+      register: install
+
+    - name: Add Kubernetes GPG key
+      get_url:
+        url: https://pkgs.k8s.io/core:/stable:/v1.30/deb/Release.key
+        dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+        mode: '0644'
+
+    - name: Add Kubernetes repository
+      apt_repository:
+        repo: 'deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/v1.30/deb/ /'
+        state: present
+      register: repo
+
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+      when: repo.changed
+
+    - name: Install kubectl
+      package:
+        state: present
+        name:
+          - kubectl
+
+
+  - name: Install minikube
+    apt:
+      deb: https://storage.googleapis.com/minikube/releases/latest/minikube_latest_amd64.deb
+
+  - name: Install ctlptl
+    # ctlptl is used to deploy minikube with a local container registry
+    block:
+
+    - name: "Install go"
+      snap:
+        name: go
+        classic: True
+
+    - name: "Install ctlptl"
+      shell: |
+        go install github.com/tilt-dev/ctlptl/cmd/ctlptl@latest
+        cp /root/go/bin/ctlptl /usr/bin/ctlptl

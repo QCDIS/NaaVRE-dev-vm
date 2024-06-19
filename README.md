@@ -9,12 +9,32 @@ This repo contains configuration for a VM intended to run the [NaaVRE-dev-enviro
 The VM runs:
 
 - a minikube cluster (at 192.168.51.2)
+- a container registry accessible from inside and outside the cluster (at 192.168.50.1:5005)
 - a DNS that can resolve both public domain names and `.test` domains defined in ingress rules (at 192.168.50.1)
 - a Wireguard VPN to access the above resources from any remote machine
 
 When connected to the Wireguard VPN, traffic to 192.168.50.0/24, 192.168.51.0/24 as well as DNS requests go through the tunnel. Traffic to other local addresses and the rest of the internet is unaffected.
 
 ![Overview diagram](./img/overview.png)
+
+### Container registry internals
+
+The container registry is deployed using [ctlptl](https://github.com/tilt-dev/ctlptl/), which also starts the minikube cluster and configures it to use the registry.
+
+The registry is automatically discovered by Tilt ((read more)[https://docs.tilt.dev/choosing_clusters.html#discovering-the-registry]). However, the registry is using plain HTTP, and additional configuration is required in order to push images to it. There are two options:
+
+- Build locally (untested). In that case, the local docker daemon needs to be configured to push to the insecure http registry at 192.168.50.1:5005. According to the [dockerd documentation](https://docs.docker.com/reference/cli/dockerd/), this is done by adding `{"insecure-registries" : ["192.168.50.1:5005"]}` to `/etc/docker/daemon.json`.
+- Build on the VM with buildx. To that end, create a new buildx builder instance using the [`buildkit.toml`](./buildkit.toml) configuration file:
+
+  ```shell
+  docker buildx create --driver kubernetes --use --config buildkit.toml
+  ```
+
+  then build and push images using:
+
+  ```shell
+  docker buildx build . -t 192.168.50.1:5005/my_image --push
+  ```
 
 ## Deploying the VM (for administrators)
 
@@ -27,14 +47,16 @@ When connected to the Wireguard VPN, traffic to 192.168.50.0/24, 192.168.51.0/24
 **Step 2:** Configure the VM
 
 ```shell
-ansible-playbook -u ubuntu -i "IP," playbooks/all.yaml
+IP=...
+ansible-playbook -u ubuntu -i "$IP," playbooks/all.yaml
 ```
 
 **Step 3:** Retrieve the wireguard and kubeconfig files
 
 ```shell
-scp ubuntu@IP:naavre-dev-vm-kubeconfig .
-scp ubuntu@IP:naavre-dev-vm.conf .
+IP=...
+scp ubuntu@$IP:naavre-dev-vm-kubeconfig .
+scp ubuntu@$IP:naavre-dev-vm.conf .
 ```
 
 and send them to the developer.
