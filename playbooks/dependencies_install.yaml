@@ -10,6 +10,7 @@
       name:
         - wireguard
         - bind9
+        - jq
     register: install
 
 

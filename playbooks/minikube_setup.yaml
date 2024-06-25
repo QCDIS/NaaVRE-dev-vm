@@ -100,3 +100,10 @@
       - name: "Generate kubeconfig file"
         shell: |
           minikube kubectl -- config view --flatten > {{ kubeconfig_file_path }}
+
+  - name: Get cm
+    shell: |
+      cm=$(kubectl -n kube-system get configmap/coredns -o json \
+        | jq '.data.Corefile += "test:53 {\n    errors\n    cache 30\n    forward . 192.168.51.2\n}"' \
+        | jq 'del(.metadata)')
+      kubectl -n kube-system patch configmap/coredns --type merge -p "$cm"
