@@ -1,6 +1,5 @@
 - hosts: all
   become: no
-  gather_facts: no
   vars:
     minikube_service_path: /usr/lib/systemd/system/minikube.service
     ctlptl_cluster_yaml_path: "/home/{{ ansible_ssh_user }}/k8s/ctlptl-cluster.yaml"
@@ -31,7 +30,8 @@
             minikube:
               startFlags:
                 - "--addons=ingress,ingress-dns"
-                - "--cpus=4"
+                - "--cpus={{ ansible_facts['processor_vcpus'] }}"
+                - "--memory={{ ansible_facts['memtotal_mb'] }}m"
                 - "--disk-size=30gb"
                 - "--network=minikube0"
                 - "--static-ip=192.168.51.2"
