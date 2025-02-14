@@ -1,0 +1,11 @@
+on:
+  issues:
+    types:
+      - opened
+
+jobs:
+  add-to-projects-overview:
+    uses: QCDIS/NaaVRE/.github/workflows/add-issue-to-projects-overview.yaml@main
+    secrets: 
+      personal_access_token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+    
