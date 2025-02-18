@@ -121,6 +121,7 @@
             PrivateKey = {{ interface_priv_key.content | b64decode }}
             Address = 192.168.50.16/24
             DNS = 192.168.50.1
+            MTU = 1384
 
             [Peer]
             PublicKey = {{ peer_pub_key.content | b64decode }}
