@@ -16,7 +16,7 @@ resource "openstack_compute_instance_v2" "dev-vm" {
   block_device {
     source_type           = "image"
     uuid = "3e29832d-215f-4062-ab50-1231756a99be"  # Ubuntu 24.04
-    volume_size           = 10
+    volume_size           = 100
     destination_type      = "volume"
     delete_on_termination = true
   }
