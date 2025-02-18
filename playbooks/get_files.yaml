@@ -1,0 +1,19 @@
+- hosts: all
+  become: yes
+  gather_facts: no
+  vars:
+    kubeconfig_file_path: "/home/{{ ansible_ssh_user }}/naavre-dev-vm-kubeconfig"
+    client_config_path: "/home/{{ ansible_ssh_user }}/naavre-dev-vm.conf"
+    dest_path: "/tmp/naavre-dev-vm"
+
+  tasks:
+
+    - name: Get kubeconfig file
+      ansible.builtin.fetch:
+        src: "{{ kubeconfig_file_path }}"
+        dest: "{{ dest_path }}"
+
+    - name: Get Wireguard client config
+      ansible.builtin.fetch:
+        src: "{{ client_config_path }}"
+        dest: "{{ dest_path }}"

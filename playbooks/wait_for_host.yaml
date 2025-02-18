@@ -1,0 +1,8 @@
+- hosts: all
+  gather_facts: no
+  tasks:
+
+    - name: Wait for host
+      wait_for_connection:
+        timeout: 3600
+        sleep: 10
