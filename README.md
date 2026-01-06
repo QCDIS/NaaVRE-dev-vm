@@ -13,7 +13,7 @@ The VM runs:
 - a DNS that can resolve both public domain names and `.test` domains defined in ingress rules (at 192.168.50.1)
 - a Wireguard VPN to access the above resources from any remote machine
 
-When connected to the Wireguard VPN, traffic to 192.168.50.0/24, 192.168.51.0/24 as well as DNS requests go through the tunnel. Traffic to other local addresses and the rest of the internet is unaffected.
+When connected to the Wireguard VPN, traffic to 192.168.50.0/24, 192.168.51.0/24 as well as DNS requests for `*.test` go through the tunnel. Traffic to other local addresses and the rest of the internet, as well as DNS requests for other domain names, are unaffected.
 
 ![Overview diagram](./img/overview.png)
 
