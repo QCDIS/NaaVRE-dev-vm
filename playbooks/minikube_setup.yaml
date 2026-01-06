@@ -66,7 +66,7 @@
             [Service]
             Type=oneshot
             RemainAfterExit=yes
-            ExecStartPre=-/usr/bin/docker network create -d bridge --subnet=192.168.51.0/24 --gateway=192.168.51.1 --opt com.docker.network.bridge.name=minikube0 minikube0
+            ExecStartPre=-/usr/bin/docker network create -d bridge --subnet=192.168.51.0/24 --gateway=192.168.51.1 --opt com.docker.network.bridge.gateway_mode_ipv4=nat-unprotected --opt com.docker.network.bridge.name=minikube0 minikube0
             ExecStart=/usr/bin/ctlptl apply -f {{ ctlptl_cluster_yaml_path }}
             ExecStartPost=-/usr/bin/kubectl -n kube-public apply -f {{ registry_cm_yaml_path }}
             ExecStop=/usr/bin/ctlptl delete -f {{ ctlptl_cluster_yaml_path }}
