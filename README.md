@@ -1,3 +1,9 @@
+> [!Important]
+> NaaVRE has been rewritten and migrated to the [NaaVRE](https://github.com/NaaVRE) organization.
+>
+> See https://github.com/NaaVRE/NaaVRE-dev-vm
+
+
 # NaaVRE development VM
 
 A VM to run https://github.com/QCDIS/NaaVRE-dev-environment
